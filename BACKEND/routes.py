@@ -64,27 +64,28 @@ def register_routes(app, login_required):
         if request.method == 'POST':
             raw = request.form.get('amount', '').strip()
 
-            # Validate: non-empty and numeric
+            # Validation check 1: Amount is required
+            if not raw:
+                error = 'Amount is required'
+                return render_template('withdraw.html', balance=balance, error=error)
+
+            # Validation check 2: Amount must be a positive number
             try:
                 amount = float(raw)
             except ValueError:
-                error = 'Please enter a valid numeric amount.'
+                error = 'Amount must be greater than zero'
                 return render_template('withdraw.html', balance=balance, error=error)
 
-            # Validate: must be positive
             if amount <= 0:
-                error = 'Withdrawal amount must be greater than zero.'
+                error = 'Amount must be greater than zero'
                 return render_template('withdraw.html', balance=balance, error=error)
 
-            # Validate: must not exceed current balance (re-read from DB — never trust browser)
-            try:
-                new_balance = account.withdraw(user_id, amount)
-            except ValueError as exc:
-                error = str(exc)
-                # Re-read balance after failed attempt (balance unchanged, but keep consistent)
-                balance = account.get_balance(user_id)
+            # Validation check 3: Amount must not exceed current balance
+            if amount > balance:
+                error = 'Insufficient funds'
                 return render_template('withdraw.html', balance=balance, error=error)
 
+            new_balance = account.withdraw(user_id, amount)
             flash(f'Withdrawal successful! New balance: ${new_balance:,.2f}', 'success')
             return redirect(url_for('dashboard'))
 
